@@ -42,14 +42,14 @@
  * all other cases this function must fail and return the passed err.
  */
 static int
-priv_policy(const cred_t *cr, int capability, boolean_t all, int err)
+priv_policy(const cred_t *cr, int capability, boolean_t all, int err, struct user_namespace *ns)
 {
 	ASSERT3S(all, ==, B_FALSE);
 
 	if (cr != CRED() && (cr != kcred))
 		return (err);
 
-	if (!capable(capability))
+	if (!(ns ? ns_capable(ns, capability) : capable(capability)))
 		return (err);
 
 	return (0);
@@ -62,7 +62,7 @@ priv_policy(const cred_t *cr, int capability, boolean_t all, int err)
 int
 secpolicy_nfs(const cred_t *cr)
 {
-	return (priv_policy(cr, CAP_SYS_ADMIN, B_FALSE, EPERM));
+	return (priv_policy(cr, CAP_SYS_ADMIN, B_FALSE, EPERM, NULL));
 }
 
 /*
@@ -71,7 +71,7 @@ secpolicy_nfs(const cred_t *cr)
 int
 secpolicy_sys_config(const cred_t *cr, boolean_t checkonly)
 {
-	return (priv_policy(cr, CAP_SYS_ADMIN, B_FALSE, EPERM));
+	return (priv_policy(cr, CAP_SYS_ADMIN, B_FALSE, EPERM, NULL));
 }
 
 /*
@@ -102,10 +102,10 @@ secpolicy_vnode_any_access(const cred_t *cr, struct inode *ip, uid_t owner)
 	if (zpl_inode_owner_or_capable(ip))
 		return (0);
 
-	if (priv_policy(cr, CAP_DAC_OVERRIDE, B_FALSE, EPERM) == 0)
+	if (priv_policy(cr, CAP_DAC_OVERRIDE, B_FALSE, EPERM, NULL) == 0)
 		return (0);
 
-	if (priv_policy(cr, CAP_DAC_READ_SEARCH, B_FALSE, EPERM) == 0)
+	if (priv_policy(cr, CAP_DAC_READ_SEARCH, B_FALSE, EPERM, NULL) == 0)
 		return (0);
 
 	return (EPERM);
@@ -120,7 +120,7 @@ secpolicy_vnode_chown(const cred_t *cr, uid_t owner)
 	if (crgetfsuid(cr) == owner)
 		return (0);
 
-	return (priv_policy(cr, CAP_FOWNER, B_FALSE, EPERM));
+	return (priv_policy(cr, CAP_FOWNER, B_FALSE, EPERM, NULL));
 }
 
 /*
@@ -129,7 +129,7 @@ secpolicy_vnode_chown(const cred_t *cr, uid_t owner)
 int
 secpolicy_vnode_create_gid(const cred_t *cr)
 {
-	return (priv_policy(cr, CAP_SETGID, B_FALSE, EPERM));
+	return (priv_policy(cr, CAP_SETGID, B_FALSE, EPERM, NULL));
 }
 
 /*
@@ -139,7 +139,7 @@ secpolicy_vnode_create_gid(const cred_t *cr)
 int
 secpolicy_vnode_remove(const cred_t *cr)
 {
-	return (priv_policy(cr, CAP_FOWNER, B_FALSE, EPERM));
+	return (priv_policy(cr, CAP_FOWNER, B_FALSE, EPERM, NULL));
 }
 
 /*
@@ -152,7 +152,7 @@ secpolicy_vnode_setdac(const cred_t *cr, uid_t owner)
 	if (crgetfsuid(cr) == owner)
 		return (0);
 
-	return (priv_policy(cr, CAP_FOWNER, B_FALSE, EPERM));
+	return (priv_policy(cr, CAP_FOWNER, B_FALSE, EPERM, NULL));
 }
 
 /*
@@ -175,8 +175,9 @@ secpolicy_vnode_setid_retain(const cred_t *cr, boolean_t issuidroot)
 int
 secpolicy_vnode_setids_setgids(const cred_t *cr, gid_t gid)
 {
+	struct user_namespace *ns = current_user_ns();
 	if (crgetfsgid(cr) != gid && !groupmember(gid, cr))
-		return (priv_policy(cr, CAP_FSETID, B_FALSE, EPERM));
+		return (kgid_has_mapping(ns, SGID_TO_KGID(gid)) && priv_policy(cr, CAP_FSETID, B_FALSE, EPERM, ns));
 
 	return (0);
 }
@@ -188,7 +189,7 @@ secpolicy_vnode_setids_setgids(const cred_t *cr, gid_t gid)
 int
 secpolicy_zinject(const cred_t *cr)
 {
-	return (priv_policy(cr, CAP_SYS_ADMIN, B_FALSE, EACCES));
+	return (priv_policy(cr, CAP_SYS_ADMIN, B_FALSE, EACCES, NULL));
 }
 
 /*
@@ -198,7 +199,7 @@ secpolicy_zinject(const cred_t *cr)
 int
 secpolicy_zfs(const cred_t *cr)
 {
-	return (priv_policy(cr, CAP_SYS_ADMIN, B_FALSE, EACCES));
+	return (priv_policy(cr, CAP_SYS_ADMIN, B_FALSE, EACCES, NULL));
 }
 
 void
@@ -222,7 +223,7 @@ secpolicy_vnode_setid_modify(const cred_t *cr, uid_t owner)
 	if (crgetfsuid(cr) == owner)
 		return (0);
 
-	return (priv_policy(cr, CAP_FSETID, B_FALSE, EPERM));
+	return (priv_policy(cr, CAP_FSETID, B_FALSE, EPERM, NULL));
 }
 
 /*
