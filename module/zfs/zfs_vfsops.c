@@ -1767,9 +1767,16 @@ zfs_domount(struct super_block *sb, zfs_mnt_t *zm, int silent)
 	int error = 0;
 	zfsvfs_t *zfsvfs = NULL;
 	vfs_t *vfs = NULL;
+	cred_t *cred = CRED();
 
 	ASSERT(zm);
 	ASSERT(osname);
+
+	error = secpolicy_zfs(cred);
+	if (error == EACCES)
+		error = dsl_deleg_access(osname, "mount", cred);
+	if (error)
+		return (error);
 
 	error = zfsvfs_parse_options(zm->mnt_data, &vfs);
 	if (error)
