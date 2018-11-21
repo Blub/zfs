@@ -423,5 +423,7 @@ struct file_system_type zpl_fs_type = {
 	.get_sb			= zpl_get_sb,
 #endif /* HAVE_FST_MOUNT */
 	.kill_sb		= zpl_kill_sb,
+#ifdef HAVE_SUPER_USER_NS
 	.fs_flags		= FS_USERNS_MOUNT,
+#endif
 };

@@ -252,11 +252,22 @@ typedef	int		zpl_umode_t;
 #define	clear_inode(ip)		end_writeback(ip)
 #endif /* HAVE_EVICT_INODE && !HAVE_CLEAR_INODE */
 
+
+#ifdef HAVE_SUPER_USER_NS
+/*
+ * 4.8 API change,
+ * The sget_userns() helper function was introduced. We want our superblock
+ * to always be owned by the init userns, otherwise when a user is allowed to
+ * create and mount a subvolume from within a user namespace, we could end up
+ * with a user-created setuid binary auto-mounted in the init-userns after the
+ * next reboot.
+ */
+#define	zpl_sget(type, cmp, set, fl, mtd)	sget_userns(type, cmp, set, fl, kcred->user_ns, mtd)
+#elif defined(HAVE_5ARG_SGET)
 /*
  * 3.6 API change,
  * The sget() helper function now takes the mount flags as an argument.
  */
-#ifdef HAVE_5ARG_SGET
 #define	zpl_sget(type, cmp, set, fl, mtd)	sget(type, cmp, set, fl, mtd)
 #else
 #define	zpl_sget(type, cmp, set, fl, mtd)	sget(type, cmp, set, mtd)
